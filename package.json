@@ -1,0 +1,12 @@
+{
+  "name": "GeoTiffTiler",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Selim Abidin",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "fs-extra": "^5.0.0",
+    "xyztile": "^2.0.0"
+  }
+}

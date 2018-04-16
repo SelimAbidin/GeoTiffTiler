@@ -4,18 +4,22 @@ const fse = require('fs-extra')
 
 var GDAL_INFO = "D:\\OSGeo4W64\\bin\\gdalinfo.exe"
 var GDAL_TRANSLATE = "D:\\OSGeo4W64\\bin\\gdal_translate.exe"
-var TIFF_PATH = "D:\\Projects\\AnkaAssets\\istanbul_rect\\avrupa.tif"
-var ROOT_FOLDER = 'D:\\_temp\\test_tiles_2\\'
+// var TIFF_PATH = "D:\\_temp\\istan_rect\\t_1.tif"
+var TIFF_PATH = "D:\\_temp\\istan_rect\\testshape.tif"
+var ROOT_FOLDER = 'D:\\_temp\\istan_rect\\istanbul_rect\\'
 
 var MAX_LEVEL = 16
 var TIF_EXTEND
 var startZoom = 16
 var abort = false
+
+var randomDebug = Math.round(Math.random() * 9999)
+var debugPath = `D://debug.txt`
 async function start() {
 
     let header = 'tile_x;tile_y;tile_z;geom'
-    fse.ensureFileSync('D://debug.txt')
-    fse.appendFileSync('D://debug.txt', header + '\n')
+    // fse.ensureFileSync(debugPath)
+    // fse.appendFileSync(debugPath, header + '\n')
 
     let command = [
         GDAL_INFO,
@@ -97,7 +101,7 @@ async function start() {
                     level : level,
                 } 
 
-                levels[level].push(o )
+                levels[level].push(o)
 
             }
         }
@@ -157,34 +161,55 @@ function isIntersect(item) {
 
 async function startProgress(fullData) {
     
-    for (let i = 0; i < fullData.length; i++) {
-        const element = fullData[i]
+    const time = process.hrtime();
+
+    var size = 100
+    for (let i = 0; i < fullData.length; i+=size) {
         
-        await extractTiff(element)    
-        
+        let sizes = []        
+        for (let j = i; j < i + size; j++) {
+            const element = fullData[j]
+            sizes.push(extractTiff(element))
+        }
+        // const element = fullData[i]
+        // let a = await extractTiff(element)
+        let data = await Promise.all(sizes)
+
         if(abort) {
             break
         }
-        process.stdout.write("Loading : %" + Math.round((i / fullData.length) * 100) + '\r');
+        process.stdout.write("Loading : %" + Math.round((i / fullData.length) * 100) + '\r' + 'processed : ' + i);
         
     }
+
+
+    const diff = process.hrtime(time);
+    const NS_PER_SEC = 1e9;
+    console.log(`Benchmark took ${diff[0] * NS_PER_SEC + diff[1]} nanoseconds`);
 }
 
 
-async function extractTiff(data) {
+function extractTiff(data) {
     
     return new Promise((resolve, reject) => {
+
 
         let west = data.west
         let east = data.east
         let north = data.north
         let south = data.south
     
-        let EXPORT_PATH = ROOT_FOLDER +  data.level + '\\' + data.x + '\\'
+        var EXPORT_PATH = ROOT_FOLDER +  data.level + '\\' + data.x + '\\'
     
         fse.ensureDirSync(EXPORT_PATH)
     
         EXPORT_PATH = EXPORT_PATH + data.y + '.tif'
+
+        if(fse.existsSync(EXPORT_PATH)) {
+            resolve(1)
+            return
+        }
+
     
         let boundBox = west + ' ' + south + ' ' + east + ' ' + north
 
@@ -198,7 +223,7 @@ async function extractTiff(data) {
          ]
     
          exec(command.join(' '), function (err, stdout, stderr) {
-             
+
             if(err) {
                 abort = true
                 reject()
@@ -206,7 +231,33 @@ async function extractTiff(data) {
                 return
             }
             
-            resolve()
+            let infoCommand = [
+                GDAL_INFO,
+                EXPORT_PATH,
+                "-json",
+                "-mm",
+                // "-approx_stats",
+                // "-norat",
+                // "-stats"
+            ]
+
+            exec(infoCommand.join(' '), function (err, stdout, stderr) {
+                
+                if(err) {
+                    abort = true
+                    reject()
+                    console.error('Error : ' , err);
+                    return
+                }
+                let infoData = JSON.parse(stdout)
+                if(infoData.bands.length === 0 || (infoData.bands[0].computedMin === undefined && infoData.bands[0].computedMax === undefined )) {
+                    fse.removeSync(EXPORT_PATH)
+                    // fse.removeSync(EXPORT_PATH + ".aux.xml")
+                }
+                resolve(2)
+            })
+
+            
          })
 
     })
@@ -262,8 +313,8 @@ function boundsToWKT(item) {
 
     let wktTXT = wkt(p1, p2, p3, p4)
 
-    fse.ensureFileSync('D://debug.txt')
-    fse.appendFileSync('D://debug.txt', x +';'+ y +';'+ z + ';'+  wktTXT + '\n')
+    // fse.ensureFileSync(debugPath)
+    // fse.appendFileSync(debugPath, x +';'+ y +';'+ z + ';'+  wktTXT + '\n')
 
 }
 

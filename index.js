@@ -178,8 +178,7 @@ async function startProgress(fullData) {
         if(abort) {
             break
         }
-        process.stdout.write("Loading : %" + Math.round((i / fullData.length) * 100) + '\r' + 'processed : ' + i);
-        
+        process.stdout.write("Loading : %" + Math.round((i / fullData.length) * 100) + '\r' + 'processed : ' + i + '\n');
     }
 
 
